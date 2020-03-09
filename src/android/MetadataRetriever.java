@@ -32,7 +32,7 @@ public class MetadataRetriever extends CordovaPlugin {
 	public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
 		if (action.equals("getMetadata")) {
 			MediaMetadataRetriever mediaMetadataRetriever = new MediaMetadataRetriever();
-			mediaMetadataRetriever.setDataSource(args.getJSONObject(0));
+			mediaMetadataRetriever.setDataSource(args.getJSONObject(0).getString("path"));
 
 			String duration = mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
 			final PluginResult result = new PluginResult(PluginResult.Status.OK, duration);
