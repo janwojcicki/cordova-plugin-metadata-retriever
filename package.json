@@ -1,0 +1,24 @@
+{
+  "name": "cordova-plugin-metadata-retriever",
+  "version": "0.0.1",
+  "description": "Cordova Metadata Retriever Plugin",
+  "cordova": {
+    "id": "cordova-plugin-metadata-retriever",
+    "platforms": [
+      "android"
+    ]
+  },
+  "keywords": [
+    "cordova",
+    "cordova-android",
+    "ecosystem:cordova"
+  ],
+  "engines": [
+	{
+      "name": "cordova",
+      "version": ">=3.9.1"
+    }
+  ],
+  "author": "Jan Wójcicki",
+  "license": "Apache 2.0"
+}
