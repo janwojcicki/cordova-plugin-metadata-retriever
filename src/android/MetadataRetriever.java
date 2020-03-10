@@ -52,7 +52,7 @@ public class MetadataRetriever extends CordovaPlugin {
 		allQueries.put("Date", MediaMetadataRetriever.METADATA_KEY_DATE);
 		allQueries.put("DiscNumber", MediaMetadataRetriever.METADATA_KEY_DISC_NUMBER);
 		allQueries.put("Genre", MediaMetadataRetriever.METADATA_KEY_GENRE);
-		allQueries.put("NumTracks", MediaMetadataRetriever.METADATA_NUM_TRACKS);
+		allQueries.put("NumTracks", MediaMetadataRetriever.METADATA_KEY_NUM_TRACKS);
 		Log.d(TAG, "metadata retriever initialized");
 	}
 
