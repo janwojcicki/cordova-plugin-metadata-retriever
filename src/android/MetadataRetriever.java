@@ -17,6 +17,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 import org.apache.cordova.PluginResult;
@@ -26,17 +27,32 @@ import java.util.Map;
 
 public class MetadataRetriever extends CordovaPlugin {
 	private static final String ERR_INVALID_OPTIONS = "ERR_INVALID_OPTIONS";
-	private static final String ERR_NOT_INITIALIZED = "ERR_NOT_INITIALIZED";
+	private static final String ERR_WHEN_RETRIEVING = "ERR_WHEN_RETRIEVING";
 	private final String TAG = MetadataRetriever.class.getSimpleName();
 	private MediaMetadataRetriever mediaMetadataRetriever = new MediaMetadataRetriever();
-	private Map<String, Integer> possibleQueries;
+	private Map<String, Integer> essentialQueries = new HashMap<>();
+	private Map<String, Integer> allQueries = new HashMap<>();
 
 	@Override
 	public void initialize(CordovaInterface cordova, CordovaWebView webView) {
-		possibleQueries.put("Album", MediaMetadataRetriever.METADATA_KEY_ALBUM);
-		possibleQueries.put("Artist", MediaMetadataRetriever.METADATA_KEY_ARTIST);
-		possibleQueries.put("Duration", MediaMetadataRetriever.METADATA_KEY_DURATION);
-		possibleQueries.put("Title", MediaMetadataRetriever.METADATA_KEY_TITLE);
+		essentialQueries.put("Album", MediaMetadataRetriever.METADATA_KEY_ALBUM);
+		essentialQueries.put("Artist", MediaMetadataRetriever.METADATA_KEY_ARTIST);
+		essentialQueries.put("Duration", MediaMetadataRetriever.METADATA_KEY_DURATION);
+		essentialQueries.put("Title", MediaMetadataRetriever.METADATA_KEY_TITLE);
+
+		allQueries.put("Album", MediaMetadataRetriever.METADATA_KEY_ALBUM);
+		allQueries.put("Artist", MediaMetadataRetriever.METADATA_KEY_ARTIST);
+		allQueries.put("Duration", MediaMetadataRetriever.METADATA_KEY_DURATION);
+		allQueries.put("Title", MediaMetadataRetriever.METADATA_KEY_TITLE);
+		allQueries.put("AlbumArtist", MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST);
+		allQueries.put("Bitrate", MediaMetadataRetriever.METADATA_KEY_BITRATE);
+		allQueries.put("CDTrackNumber", MediaMetadataRetriever.METADATA_KEY_CD_TRACK_NUMBER);
+		allQueries.put("Compilation", MediaMetadataRetriever.METADATA_KEY_COMPILATION);
+		allQueries.put("Composer", MediaMetadataRetriever.METADATA_KEY_COMPOSER);
+		allQueries.put("Date", MediaMetadataRetriever.METADATA_KEY_DATE);
+		allQueries.put("DiscNumber", MediaMetadataRetriever.METADATA_KEY_DISC_NUMBER);
+		allQueries.put("Genre", MediaMetadataRetriever.METADATA_KEY_GENRE);
+		allQueries.put("NumTracks", MediaMetadataRetriever.METADATA_NUM_TRACKS);
 		Log.d(TAG, "metadata retriever initialized");
 	}
 
@@ -49,56 +65,75 @@ public class MetadataRetriever extends CordovaPlugin {
 			return false;
 		}
 
-		JSONArray filePaths = new JSONArray();
-
-		if (params.isNull("path")) {
-			if (params.isNull("paths")) {
-				callbackContext.error(ERR_INVALID_OPTIONS);
-				return false;
-			}
-
-			filePaths = params.getJSONArray("paths");
-
-		} else {
-			filePaths.put(params.getString("path"));
+		if (params.isNull("paths")) {
+			callbackContext.error(ERR_INVALID_OPTIONS);
+			return false;
 		}
+		final JSONArray filePaths = params.getJSONArray("paths");
 
-		JSONArray returnObj = new JSONArray();
+		cordova.getThreadPool().execute(new Runnable() {
 
-		for (int i = 0; i < filePaths.length(); i++) {
-			mediaMetadataRetriever.setDataSource(filePaths.getString(i));
-
-			JSONObject thisFileObject = new JSONObject();
-
-			for (Map.Entry<String, Integer> entry : possibleQueries.entrySet()) {
-				if (action.equals("get" + entry.getKey())) {
-					addMetadataToJSON(entry.getKey(), entry.getValue(), thisFileObject);
+			private JSONObject addMetadataToJSON(String key, int metadataID, JSONObject obj) {
+				String meta = mediaMetadataRetriever.extractMetadata(metadataID);
+				try {
+					obj.put(key, meta);
+				} catch (JSONException e) {
+					callbackContext.error(ERR_INVALID_OPTIONS);
 				}
+				return obj;
 			}
 
-			if (action.equals("getMetadata")) {
-				for (Map.Entry<String, Integer> entry : possibleQueries.entrySet()) {
-					addMetadataToJSON(entry.getKey(), entry.getValue(), thisFileObject);
+			@Override
+			public void run() {
+				JSONArray returnObj = new JSONArray();
+				for (int i = 0; i < filePaths.length(); i++) {
+					try {
+						mediaMetadataRetriever.setDataSource(filePaths.getString(i));
+					} catch (JSONException e) {
+						callbackContext.error(ERR_INVALID_OPTIONS);
+					}
+
+					JSONObject thisFileObject = new JSONObject();
+
+					if (action.equals("getEssentialMetadata")) {
+						for (Map.Entry<String, Integer> entry : essentialQueries.entrySet()) {
+							addMetadataToJSON(entry.getKey(), entry.getValue(), thisFileObject);
+						}
+						returnObj.put(thisFileObject);
+						continue;
+					}
+
+					if (action.equals("getMetadata")) {
+						for (Map.Entry<String, Integer> entry : allQueries.entrySet()) {
+							addMetadataToJSON(entry.getKey(), entry.getValue(), thisFileObject);
+						}
+						returnObj.put(thisFileObject);
+						continue;
+					}
+
+					for (Map.Entry<String, Integer> entry : allQueries.entrySet()) {
+						if (action.equals("get" + entry.getKey())) {
+							addMetadataToJSON(entry.getKey(), entry.getValue(), thisFileObject);
+						}
+					}
+
+					returnObj.put(thisFileObject);
 				}
+
+				PluginResult result = new PluginResult(Status.ERROR);
+				if (returnObj.length() == 1) {
+					try {
+						result = new PluginResult(PluginResult.Status.OK, returnObj.getJSONObject(0));
+					} catch (JSONException e) {
+						callbackContext.error(ERR_WHEN_RETRIEVING);
+					}
+				} else {
+					result = new PluginResult(PluginResult.Status.OK, returnObj);
+				}
+
+				callbackContext.sendPluginResult(result);
 			}
-
-			returnObj.put(thisFileObject);
-		}
-
-		final PluginResult result;
-		if (returnObj.length() == 1) {
-			result = new PluginResult(PluginResult.Status.OK, returnObj.getJSONObject(0));
-		} else {
-			result = new PluginResult(PluginResult.Status.OK, returnObj);
-		}
-
-		callbackContext.sendPluginResult(result);
+		});
 		return true;
-	}
-
-	private JSONObject addMetadataToJSON(String key, int metadataID, JSONObject obj) throws JSONException {
-		String meta = mediaMetadataRetriever.extractMetadata(metadataID);
-		obj.put(key, meta);
-		return obj;
 	}
 }
